@@ -11,6 +11,7 @@ async function fetchMenu() {
 function generateFilterButtons() {
   const allTags = new Set(menuData.flatMap(item => item.tags));
   const filtersContainer = document.getElementById("filters");
+
   allTags.forEach(tag => {
     const btn = document.createElement("button");
     btn.textContent = tag;
@@ -32,17 +33,22 @@ function toggleFilter(tag, button) {
 
 function recommendMenu() {
   let filtered = menuData;
-  if (filters.size) {
+
+  if (filters.size > 0) {
     filtered = menuData.filter(item =>
       item.tags.some(tag => filters.has(tag))
     );
   }
-  if (!filtered.length) {
-    document.getElementById("menuItem").textContent = "해당 조건의 메뉴가 없어요 😢";
+
+  if (filtered.length === 0) {
+    document.getElementById("menuItem").textContent = "조건에 맞는 메뉴가 없어요 😢";
+    document.getElementById("favoriteBtn").style.visibility = "hidden";
     return;
   }
+
   const picked = filtered[Math.floor(Math.random() * filtered.length)];
   document.getElementById("menuItem").textContent = picked.name;
+  document.getElementById("favoriteBtn").style.visibility = "visible";
   updateFavoriteIcon(picked.name);
 }
 
@@ -60,45 +66,58 @@ function toggleFavorite(menuName) {
   }
   localStorage.setItem("favorites", JSON.stringify(favorites));
   updateFavoriteIcon(menuName);
+  refreshFavoritesPopup();
 }
 
 function toggleFavoritesPopup() {
   const popup = document.getElementById("favoritesPopup");
   const overlay = document.getElementById("overlay");
+
+  const isOpen = popup.style.display === "block";
+  popup.style.display = isOpen ? "none" : "block";
+  overlay.style.display = isOpen ? "none" : "block";
+
+  if (!isOpen) {
+    refreshFavoritesPopup();
+  }
+}
+
+function refreshFavoritesPopup() {
   const list = document.getElementById("favoritesList");
-
-  popup.style.display = popup.style.display === "block" ? "none" : "block";
-  overlay.style.display = overlay.style.display === "block" ? "none" : "block";
-
   list.innerHTML = "";
 
   if (favorites.length === 0) {
     const msg = document.createElement("p");
-    msg.textContent = "즐겨찾기한 메뉴가 아직 없어요! 추천받고 별 눌러보세요 ⭐";
-    msg.style.color = "#888";
+    msg.textContent = "즐겨찾기된 메뉴가 없네요! 추천받고 즐겨찾기해보세요 🍴";
+    msg.style.color = "#999";
     list.appendChild(msg);
-  } else {
-    favorites.forEach(name => {
-      const item = document.createElement("div");
-      item.textContent = name;
-      item.style.marginBottom = "0.5rem";
-      item.style.display = "flex";
-      item.style.justifyContent = "space-between";
-      item.innerHTML = `<span>${name}</span><button onclick="toggleFavorite('${name}')" style="background:none; border:none; cursor:pointer;">❌</button>`;
-      list.appendChild(item);
-    });
+    return;
   }
+
+  favorites.forEach(name => {
+    const item = document.createElement("div");
+    item.style.marginBottom = "0.5rem";
+    item.style.display = "flex";
+    item.style.justifyContent = "space-between";
+    item.style.alignItems = "center";
+
+    item.innerHTML = `
+      <span>${name}</span>
+      <button onclick="toggleFavorite('${name}')" style="background:none;border:none;color:red;cursor:pointer;">❌</button>
+    `;
+    list.appendChild(item);
+  });
 }
 
 function shareSite() {
   if (navigator.share) {
     navigator.share({
-      title: '오늘 뭐 먹지? | EatPick',
-      text: '메뉴 고민 끝! 지금 EatPick에서 추천받아보세요 🍽️',
-      url: window.location.href,
+      title: 'EatPick - 오늘 뭐 먹지?',
+      text: '오늘 뭐 먹을지 고민된다면? 🍱 EatPick으로 추천받아보세요!',
+      url: window.location.href
     }).catch(err => console.log("공유 실패:", err));
   } else {
-    alert("공유 기능을 지원하지 않는 브라우저입니다.");
+    alert("이 브라우저는 공유 기능을 지원하지 않아요 😢");
   }
 }
 

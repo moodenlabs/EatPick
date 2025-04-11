@@ -1,124 +1,121 @@
-let menuData = [];
-let filters = new Set();
+const tagFiltersEl = document.getElementById("tagFilters");
+const menuDisplay = document.getElementById("menuDisplay");
+const favoritesListEl = document.getElementById("favoritesList");
+const favoriteModal = document.getElementById("favoriteModal");
+
+let menus = [];
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+let selectedTags = new Set();
+let allTags = new Set();
+let currentFiltered = [];
 
-async function fetchMenu() {
-  const res = await fetch('menu.json');
-  menuData = await res.json();
-  generateFilterButtons();
-}
+// 메뉴 불러오기
+fetch('menus.json')
+  .then(res => res.json())
+  .then(data => {
+    menus = data;
+    data.forEach(menu => menu.tags.forEach(tag => allTags.add(tag)));
+    renderTagButtons();
+    renderFavorites();
+  });
 
-function generateFilterButtons() {
-  const allTags = new Set(menuData.flatMap(item => item.tags));
-  const filtersContainer = document.getElementById("filters");
-
-  allTags.forEach(tag => {
+// 태그 버튼 렌더링
+function renderTagButtons() {
+  tagFiltersEl.innerHTML = "";
+  Array.from(allTags).sort().forEach(tag => {
     const btn = document.createElement("button");
+    btn.className = "tag-btn";
     btn.textContent = tag;
-    btn.className = "filter-btn";
-    btn.onclick = () => toggleFilter(tag, btn);
-    filtersContainer.appendChild(btn);
+    btn.addEventListener("click", () => {
+      if (selectedTags.has(tag)) selectedTags.delete(tag);
+      else selectedTags.add(tag);
+      btn.classList.toggle("active");
+    });
+    tagFiltersEl.appendChild(btn);
   });
 }
 
-function toggleFilter(tag, button) {
-  if (filters.has(tag)) {
-    filters.delete(tag);
-    button.classList.remove("active");
-  } else {
-    filters.add(tag);
-    button.classList.add("active");
-  }
-}
-
-function recommendMenu() {
-  let filtered = menuData;
-
-  if (filters.size > 0) {
-    filtered = menuData.filter(item =>
-      item.tags.some(tag => filters.has(tag))
+// 필터링 메뉴 저장만
+function updateFilteredList() {
+  currentFiltered = menus;
+  if (selectedTags.size > 0) {
+    currentFiltered = menus.filter(menu =>
+      [...selectedTags].every(tag => menu.tags.includes(tag))
     );
   }
+}
 
-  if (filtered.length === 0) {
-    document.getElementById("menuItem").textContent = "조건에 맞는 메뉴가 없어요 😢";
-    document.getElementById("favoriteBtn").style.visibility = "hidden";
+// 메뉴 추천 렌더링
+function renderFilteredRandom() {
+  updateFilteredList();
+  if (currentFiltered.length === 0) {
+    menuDisplay.innerHTML = `<p style="margin-top:1rem;">조건에 맞는 메뉴가 없어요 😢</p>`;
     return;
   }
-
-  const picked = filtered[Math.floor(Math.random() * filtered.length)];
-  document.getElementById("menuItem").textContent = picked.name;
-  document.getElementById("favoriteBtn").style.visibility = "visible";
-  updateFavoriteIcon(picked.name);
+  const menu = currentFiltered[Math.floor(Math.random() * currentFiltered.length)];
+  menuDisplay.innerHTML = getMenuBoxHTML(menu, true);
+  addFavoriteEvent(menuDisplay.querySelector(".favorite-btn"), menu);
 }
 
-function updateFavoriteIcon(menuName) {
-  const btn = document.getElementById("favoriteBtn");
-  btn.onclick = () => toggleFavorite(menuName);
-  btn.style.color = favorites.includes(menuName) ? "#facc15" : "#ccc";
+function getMenuBoxHTML(menu, includeBtn = false) {
+  return `
+    <div class="menu-box">
+      ${includeBtn ? `<button class="favorite-btn ${isFavorite(menu) ? 'favorited' : ''}">★</button>` : ""}
+      <h2>${menu.emoji} ${menu.name}</h2>
+      <div class="tags">${menu.tags.join(", ")}</div>
+      <p>${menu.desc}</p>
+    </div>
+  `;
 }
 
-function toggleFavorite(menuName) {
-  if (favorites.includes(menuName)) {
-    favorites = favorites.filter(f => f !== menuName);
-  } else {
-    favorites.push(menuName);
-  }
+function isFavorite(menu) {
+  return favorites.some(m => m.name === menu.name);
+}
+
+function toggleFavorite(menu) {
+  const idx = favorites.findIndex(m => m.name === menu.name);
+  if (idx >= 0) favorites.splice(idx, 1);
+  else favorites.push(menu);
   localStorage.setItem("favorites", JSON.stringify(favorites));
-  updateFavoriteIcon(menuName);
-  refreshFavoritesPopup();
+  renderFavorites();
 }
 
-function toggleFavoritesPopup() {
-  const popup = document.getElementById("favoritesPopup");
-  const overlay = document.getElementById("overlay");
-
-  const isOpen = popup.style.display === "block";
-  popup.style.display = isOpen ? "none" : "block";
-  overlay.style.display = isOpen ? "none" : "block";
-
-  if (!isOpen) {
-    refreshFavoritesPopup();
-  }
-}
-
-function refreshFavoritesPopup() {
-  const list = document.getElementById("favoritesList");
-  list.innerHTML = "";
-
+function renderFavorites() {
+  favoritesListEl.innerHTML = "";
   if (favorites.length === 0) {
-    const msg = document.createElement("p");
-    msg.textContent = "즐겨찾기된 메뉴가 없네요! 추천받고 즐겨찾기해보세요 🍴";
-    msg.style.color = "#999";
-    list.appendChild(msg);
+    favoritesListEl.innerHTML = `<p style="margin-top:1rem;">찜한 메뉴가 아직 없네요! 하나쯤 골라보는 건 어때요? 🥢</p>`;
     return;
   }
-
-  favorites.forEach(name => {
-    const item = document.createElement("div");
-    item.style.marginBottom = "0.5rem";
-    item.style.display = "flex";
-    item.style.justifyContent = "space-between";
-    item.style.alignItems = "center";
-
-    item.innerHTML = `
-      <span>${name}</span>
-      <button onclick="toggleFavorite('${name}')" style="background:none;border:none;color:red;cursor:pointer;">❌</button>
-    `;
-    list.appendChild(item);
+  favorites.forEach(menu => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = getMenuBoxHTML(menu, true);
+    favoritesListEl.appendChild(wrapper);
+    const btn = wrapper.querySelector(".favorite-btn");
+    addFavoriteEvent(btn, menu);
   });
 }
 
-function shareSite() {
-  if (navigator.share) {
-    navigator.share({
-      title: 'EatPick - 오늘 뭐 먹지?',
-      text: '오늘 뭐 먹을지 고민된다면? 🍱 EatPick으로 추천받아보세요!',
-      url: window.location.href
-    }).catch(err => console.log("공유 실패:", err));
-  } else {
-    alert("이 브라우저는 공유 기능을 지원하지 않아요 😢");
-  }
+function addFavoriteEvent(btn, menu) {
+  btn.addEventListener("click", e => {
+    toggleFavorite(menu);
+    btn.classList.toggle("favorited", isFavorite(menu));
+    e.stopPropagation();
+  });
 }
 
-fetchMenu();
+// 이벤트 등록
+document.getElementById("pickBtn").addEventListener("click", () => {
+  renderFilteredRandom();
+});
+
+document.getElementById("openFavorites").addEventListener("click", () => {
+  favoriteModal.style.display = "flex";
+});
+
+function closeFavorites() {
+  favoriteModal.style.display = "none";
+}
+
+document.getElementById("toggleDark").addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+});

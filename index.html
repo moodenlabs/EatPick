@@ -3,144 +3,149 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>오늘 뭐 먹지?</title>
+  <title>EatPick - 오늘 뭐 먹지?</title>
+  <link rel="icon" href="favicon.png" type="image/png">
   <style>
-    :root {
-      --bg: #fff;
-      --text: #111;
-      --card: #f8f6fc;
-      --accent: #b388eb;
-    }
-    .dark {
-      --bg: #1a1a1a;
-      --text: #eee;
-      --card: #2a2a2a;
-    }
-
-    * { box-sizing: border-box; }
-
     body {
-      margin: 0; padding: 2rem;
-      font-family: 'Segoe UI', sans-serif;
-      background: var(--bg); color: var(--text);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      transition: background 0.3s, color 0.3s;
+      font-family: 'Arial', sans-serif;
+      background-color: #f8f5ff;
+      color: #333;
+      text-align: center;
+      padding: 2rem;
     }
 
-    h1, h2, h3 { text-align: center; }
-
-    .btn {
-      background: var(--accent); color: white;
-      border: none; padding: 0.6rem 1rem;
-      border-radius: 12px; cursor: pointer;
-      font-size: 1rem; margin: 0.4rem;
-      transition: background 0.3s;
-    }
-    .btn:hover {
-      background: #a16de0;
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #7c3aed;
     }
 
-    .tag-container {
+    .filters, .tags {
       display: flex;
       flex-wrap: wrap;
+      gap: 0.5rem;
       justify-content: center;
-      gap: 0.4rem;
-      max-width: 600px;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
 
-    .tag-btn {
-      background: #e0d4f5;
-      color: #4a3f6c;
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      border: none;
+    .filter-btn {
+      background-color: #ede9fe;
+      border: 2px solid #c4b5fd;
+      color: #6d28d9;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
       cursor: pointer;
-      transition: all 0.2s;
+      font-weight: bold;
     }
 
-    .tag-btn.active {
-      background: var(--accent);
+    .filter-btn.active {
+      background-color: #c4b5fd;
       color: white;
     }
 
-    .menu-box {
-      background: var(--card);
-      padding: 1.5rem;
-      border-radius: 16px;
-      margin-top: 1.5rem;
-      width: 100%;
-      max-width: 480px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      text-align: center;
-      position: relative;
+    .menu-section {
+      margin-top: 2rem;
     }
 
-    .tags {
-      font-size: 0.9rem;
-      opacity: 0.75;
-      margin-bottom: 0.5rem;
+    .menu-item {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .favorite-btn {
-      background: none; border: none;
-      font-size: 1.6rem; cursor: pointer;
-      position: absolute; top: 12px; right: 16px;
-      transition: color 0.2s;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
     }
 
-    .favorited {
-      color: gold;
+    .recommend-btn, .share-btn {
+      background-color: #a78bfa;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: bold;
+      margin: 0.5rem;
     }
 
-    #favoriteModal {
-      display: none;
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6);
-      justify-content: center; align-items: center;
-    }
-
-    .modal-content {
-      background: var(--bg); color: var(--text);
+    .popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 2px solid #ddd;
       padding: 2rem;
-      border-radius: 16px;
-      max-width: 500px; width: 90%;
-      text-align: center;
-      max-height: 80vh;
-      overflow-y: auto;
+      border-radius: 1rem;
+      display: none;
+      max-width: 300px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 100;
     }
 
-    .center-row {
-      display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
+    .popup h2 {
       margin-bottom: 1rem;
+      color: #7c3aed;
+    }
+
+    .popup .favorites-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+    }
+
+    .popup-close {
+      background-color: #ddd;
+      border: none;
+      border-radius: 999px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      z-index: 99;
     }
   </style>
 </head>
 <body>
-  <h1>🍱 오늘 뭐 먹지?</h1>
 
-  <div id="tagFilters" class="tag-container"></div>
+  <h1>오늘 뭐 먹지? 🍽️</h1>
 
-  <div class="center-row">
-    <button id="pickBtn" class="btn">🎲 메뉴 추천 받기</button>
-    <button id="openFavorites" class="btn">⭐ 즐겨찾기</button>
-    <button id="toggleDark" class="btn">🌙 다크모드</button>
+  <div class="filters" id="filters">
+    <!-- 필터 버튼 JS로 자동 생성 -->
   </div>
 
-  <div id="menuDisplay"></div>
+  <div class="menu-section">
+    <div class="menu-item" id="menuItem">메뉴를 추천받아보세요!</div>
+    <button class="favorite-btn" id="favoriteBtn" title="즐겨찾기">⭐</button>
+    <div>
+      <button class="recommend-btn" onclick="recommendMenu()">🎲 메뉴 추천 받기</button>
+      <button class="share-btn" onclick="shareSite()">📤 공유하기</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 2rem;">
+    <button class="recommend-btn" onclick="toggleFavoritesPopup()">⭐ 즐겨찾기 보기</button>
+  </div>
 
   <!-- 즐겨찾기 팝업 -->
-  <div id="favoriteModal">
-    <div class="modal-content">
-      <h2>⭐ 즐겨찾기 메뉴</h2>
-      <div id="favoritesList"></div>
-      <button class="btn" onclick="closeFavorites()">닫기</button>
+  <div class="overlay" id="overlay" onclick="toggleFavoritesPopup()"></div>
+  <div class="popup" id="favoritesPopup">
+    <h2>내 즐겨찾기</h2>
+    <div class="favorites-list" id="favoritesList">
+      <p style="color: #888;">(비어 있음)</p>
     </div>
+    <button class="popup-close" onclick="toggleFavoritesPopup()">닫기</button>
   </div>
 
   <script src="script.js"></script>

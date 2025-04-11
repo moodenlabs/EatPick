@@ -1,121 +1,105 @@
-const tagFiltersEl = document.getElementById("tagFilters");
-const menuDisplay = document.getElementById("menuDisplay");
-const favoritesListEl = document.getElementById("favoritesList");
-const favoriteModal = document.getElementById("favoriteModal");
-
-let menus = [];
+let menuData = [];
+let filters = new Set();
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
-let selectedTags = new Set();
-let allTags = new Set();
-let currentFiltered = [];
 
-// 메뉴 불러오기
-fetch('menus.json')
-  .then(res => res.json())
-  .then(data => {
-    menus = data;
-    data.forEach(menu => menu.tags.forEach(tag => allTags.add(tag)));
-    renderTagButtons();
-    renderFavorites();
-  });
+async function fetchMenu() {
+  const res = await fetch('menu.json');
+  menuData = await res.json();
+  generateFilterButtons();
+}
 
-// 태그 버튼 렌더링
-function renderTagButtons() {
-  tagFiltersEl.innerHTML = "";
-  Array.from(allTags).sort().forEach(tag => {
+function generateFilterButtons() {
+  const allTags = new Set(menuData.flatMap(item => item.tags));
+  const filtersContainer = document.getElementById("filters");
+  allTags.forEach(tag => {
     const btn = document.createElement("button");
-    btn.className = "tag-btn";
     btn.textContent = tag;
-    btn.addEventListener("click", () => {
-      if (selectedTags.has(tag)) selectedTags.delete(tag);
-      else selectedTags.add(tag);
-      btn.classList.toggle("active");
-    });
-    tagFiltersEl.appendChild(btn);
+    btn.className = "filter-btn";
+    btn.onclick = () => toggleFilter(tag, btn);
+    filtersContainer.appendChild(btn);
   });
 }
 
-// 필터링 메뉴 저장만
-function updateFilteredList() {
-  currentFiltered = menus;
-  if (selectedTags.size > 0) {
-    currentFiltered = menus.filter(menu =>
-      [...selectedTags].every(tag => menu.tags.includes(tag))
+function toggleFilter(tag, button) {
+  if (filters.has(tag)) {
+    filters.delete(tag);
+    button.classList.remove("active");
+  } else {
+    filters.add(tag);
+    button.classList.add("active");
+  }
+}
+
+function recommendMenu() {
+  let filtered = menuData;
+  if (filters.size) {
+    filtered = menuData.filter(item =>
+      item.tags.some(tag => filters.has(tag))
     );
   }
-}
-
-// 메뉴 추천 렌더링
-function renderFilteredRandom() {
-  updateFilteredList();
-  if (currentFiltered.length === 0) {
-    menuDisplay.innerHTML = `<p style="margin-top:1rem;">조건에 맞는 메뉴가 없어요 😢</p>`;
+  if (!filtered.length) {
+    document.getElementById("menuItem").textContent = "해당 조건의 메뉴가 없어요 😢";
     return;
   }
-  const menu = currentFiltered[Math.floor(Math.random() * currentFiltered.length)];
-  menuDisplay.innerHTML = getMenuBoxHTML(menu, true);
-  addFavoriteEvent(menuDisplay.querySelector(".favorite-btn"), menu);
+  const picked = filtered[Math.floor(Math.random() * filtered.length)];
+  document.getElementById("menuItem").textContent = picked.name;
+  updateFavoriteIcon(picked.name);
 }
 
-function getMenuBoxHTML(menu, includeBtn = false) {
-  return `
-    <div class="menu-box">
-      ${includeBtn ? `<button class="favorite-btn ${isFavorite(menu) ? 'favorited' : ''}">★</button>` : ""}
-      <h2>${menu.emoji} ${menu.name}</h2>
-      <div class="tags">${menu.tags.join(", ")}</div>
-      <p>${menu.desc}</p>
-    </div>
-  `;
+function updateFavoriteIcon(menuName) {
+  const btn = document.getElementById("favoriteBtn");
+  btn.onclick = () => toggleFavorite(menuName);
+  btn.style.color = favorites.includes(menuName) ? "#facc15" : "#ccc";
 }
 
-function isFavorite(menu) {
-  return favorites.some(m => m.name === menu.name);
-}
-
-function toggleFavorite(menu) {
-  const idx = favorites.findIndex(m => m.name === menu.name);
-  if (idx >= 0) favorites.splice(idx, 1);
-  else favorites.push(menu);
+function toggleFavorite(menuName) {
+  if (favorites.includes(menuName)) {
+    favorites = favorites.filter(f => f !== menuName);
+  } else {
+    favorites.push(menuName);
+  }
   localStorage.setItem("favorites", JSON.stringify(favorites));
-  renderFavorites();
+  updateFavoriteIcon(menuName);
 }
 
-function renderFavorites() {
-  favoritesListEl.innerHTML = "";
+function toggleFavoritesPopup() {
+  const popup = document.getElementById("favoritesPopup");
+  const overlay = document.getElementById("overlay");
+  const list = document.getElementById("favoritesList");
+
+  popup.style.display = popup.style.display === "block" ? "none" : "block";
+  overlay.style.display = overlay.style.display === "block" ? "none" : "block";
+
+  list.innerHTML = "";
+
   if (favorites.length === 0) {
-    favoritesListEl.innerHTML = `<p style="margin-top:1rem;">찜한 메뉴가 아직 없네요! 하나쯤 골라보는 건 어때요? 🥢</p>`;
-    return;
+    const msg = document.createElement("p");
+    msg.textContent = "즐겨찾기한 메뉴가 아직 없어요! 추천받고 별 눌러보세요 ⭐";
+    msg.style.color = "#888";
+    list.appendChild(msg);
+  } else {
+    favorites.forEach(name => {
+      const item = document.createElement("div");
+      item.textContent = name;
+      item.style.marginBottom = "0.5rem";
+      item.style.display = "flex";
+      item.style.justifyContent = "space-between";
+      item.innerHTML = `<span>${name}</span><button onclick="toggleFavorite('${name}')" style="background:none; border:none; cursor:pointer;">❌</button>`;
+      list.appendChild(item);
+    });
   }
-  favorites.forEach(menu => {
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = getMenuBoxHTML(menu, true);
-    favoritesListEl.appendChild(wrapper);
-    const btn = wrapper.querySelector(".favorite-btn");
-    addFavoriteEvent(btn, menu);
-  });
 }
 
-function addFavoriteEvent(btn, menu) {
-  btn.addEventListener("click", e => {
-    toggleFavorite(menu);
-    btn.classList.toggle("favorited", isFavorite(menu));
-    e.stopPropagation();
-  });
+function shareSite() {
+  if (navigator.share) {
+    navigator.share({
+      title: '오늘 뭐 먹지? | EatPick',
+      text: '메뉴 고민 끝! 지금 EatPick에서 추천받아보세요 🍽️',
+      url: window.location.href,
+    }).catch(err => console.log("공유 실패:", err));
+  } else {
+    alert("공유 기능을 지원하지 않는 브라우저입니다.");
+  }
 }
 
-// 이벤트 등록
-document.getElementById("pickBtn").addEventListener("click", () => {
-  renderFilteredRandom();
-});
-
-document.getElementById("openFavorites").addEventListener("click", () => {
-  favoriteModal.style.display = "flex";
-});
-
-function closeFavorites() {
-  favoriteModal.style.display = "none";
-}
-
-document.getElementById("toggleDark").addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-});
+fetchMenu();

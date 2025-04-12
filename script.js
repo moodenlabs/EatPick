@@ -1,115 +1,121 @@
-let selectedTags = [];
-let menuData = [];
-let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-
-const filters = ["한식", "중식", "일식", "양식", "분식", "매운맛", "국물", "면", "밥", "고기", "채식"];
-const filterContainer = document.getElementById("filters");
+const tagFiltersEl = document.getElementById("tagFilters");
 const menuDisplay = document.getElementById("menuDisplay");
-const favoritePopup = document.getElementById("favoritePopup");
-const favoriteList = document.getElementById("favoriteList");
-const shareMessage = document.getElementById("shareMessage");
+const favoritesListEl = document.getElementById("favoritesList");
+const favoriteModal = document.getElementById("favoriteModal");
 
-filters.forEach(tag => {
-  const btn = document.createElement("button");
-  btn.textContent = tag;
-  btn.className = "btn tag filter-btn";
-  btn.addEventListener("click", () => toggleTag(tag, btn));
-  filterContainer.appendChild(btn);
-});
+let menus = [];
+let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+let selectedTags = new Set();
+let allTags = new Set();
+let currentFiltered = [];
 
-function toggleTag(tag, btn) {
-  if (selectedTags.includes(tag)) {
-    selectedTags = selectedTags.filter(t => t !== tag);
-    btn.classList.remove("selected");
-  } else {
-    selectedTags.push(tag);
-    btn.classList.add("selected");
+// 메뉴 불러오기
+fetch('menus.json')
+  .then(res => res.json())
+  .then(data => {
+    menus = data;
+    data.forEach(menu => menu.tags.forEach(tag => allTags.add(tag)));
+    renderTagButtons();
+    renderFavorites();
+  });
+
+// 태그 버튼 렌더링
+function renderTagButtons() {
+  tagFiltersEl.innerHTML = "";
+  Array.from(allTags).sort().forEach(tag => {
+    const btn = document.createElement("button");
+    btn.className = "tag-btn";
+    btn.textContent = tag;
+    btn.addEventListener("click", () => {
+      if (selectedTags.has(tag)) selectedTags.delete(tag);
+      else selectedTags.add(tag);
+      btn.classList.toggle("active");
+    });
+    tagFiltersEl.appendChild(btn);
+  });
+}
+
+// 필터링 메뉴 저장만
+function updateFilteredList() {
+  currentFiltered = menus;
+  if (selectedTags.size > 0) {
+    currentFiltered = menus.filter(menu =>
+      [...selectedTags].every(tag => menu.tags.includes(tag))
+    );
   }
 }
 
-function recommendMenu() {
-  const filtered = menuData.filter(item =>
-    selectedTags.every(tag => item.tags.includes(tag))
-  );
-
-  const list = selectedTags.length ? filtered : menuData;
-  const pick = list[Math.floor(Math.random() * list.length)];
-
-  if (!pick) {
-    menuDisplay.textContent = "조건에 맞는 메뉴가 없어요!";
+// 메뉴 추천 렌더링
+function renderFilteredRandom() {
+  updateFilteredList();
+  if (currentFiltered.length === 0) {
+    menuDisplay.innerHTML = `<p style="margin-top:1rem;">조건에 맞는 메뉴가 없어요 😢</p>`;
     return;
   }
+  const menu = currentFiltered[Math.floor(Math.random() * currentFiltered.length)];
+  menuDisplay.innerHTML = getMenuBoxHTML(menu, true);
+  addFavoriteEvent(menuDisplay.querySelector(".favorite-btn"), menu);
+}
 
-  const isFav = favorites.includes(pick.name);
-  menuDisplay.innerHTML = `
-    <div class="menu-item">
-      <span>${pick.emoji} ${pick.name}</span>
-      <span class="star" onclick="toggleFavorite('${pick.name}')">
-        ${isFav ? "★" : "☆"}
-      </span>
+function getMenuBoxHTML(menu, includeBtn = false) {
+  return `
+    <div class="menu-box">
+      ${includeBtn ? `<button class="favorite-btn ${isFavorite(menu) ? 'favorited' : ''}">★</button>` : ""}
+      <h2>${menu.emoji} ${menu.name}</h2>
+      <div class="tags">${menu.tags.join(", ")}</div>
+      <p>${menu.desc}</p>
     </div>
   `;
 }
 
-function toggleFavorite(name) {
-  const index = favorites.indexOf(name);
-  if (index > -1) {
-    favorites.splice(index, 1);
-  } else {
-    favorites.push(name);
-  }
+function isFavorite(menu) {
+  return favorites.some(m => m.name === menu.name);
+}
+
+function toggleFavorite(menu) {
+  const idx = favorites.findIndex(m => m.name === menu.name);
+  if (idx >= 0) favorites.splice(idx, 1);
+  else favorites.push(menu);
   localStorage.setItem("favorites", JSON.stringify(favorites));
-  recommendMenu(); // refresh star
-  if (favoritePopup.style.display === "block") showFavorites(); // refresh popup
+  renderFavorites();
 }
 
-function toggleFavorites() {
-  if (favoritePopup.style.display === "block") {
-    favoritePopup.style.display = "none";
-  } else {
-    showFavorites();
-    favoritePopup.style.display = "block";
-  }
-}
-
-function showFavorites() {
-  favoriteList.innerHTML = "";
-  if (!favorites.length) {
-    favoriteList.innerHTML = "<li>즐겨찾기한 메뉴가 아직 없어요. 추천을 받고 추가해보세요!</li>";
+function renderFavorites() {
+  favoritesListEl.innerHTML = "";
+  if (favorites.length === 0) {
+    favoritesListEl.innerHTML = `<p style="margin-top:1rem;">찜한 메뉴가 아직 없네요! 하나쯤 골라보는 건 어때요? 🥢</p>`;
     return;
   }
-  favorites.forEach(name => {
-    favoriteList.innerHTML += `<li>
-      ${name} <span class="star" onclick="toggleFavorite('${name}')">★</span>
-    </li>`;
+  favorites.forEach(menu => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = getMenuBoxHTML(menu, true);
+    favoritesListEl.appendChild(wrapper);
+    const btn = wrapper.querySelector(".favorite-btn");
+    addFavoriteEvent(btn, menu);
   });
 }
 
-function toggleDarkMode() {
+function addFavoriteEvent(btn, menu) {
+  btn.addEventListener("click", e => {
+    toggleFavorite(menu);
+    btn.classList.toggle("favorited", isFavorite(menu));
+    e.stopPropagation();
+  });
+}
+
+// 이벤트 등록
+document.getElementById("pickBtn").addEventListener("click", () => {
+  renderFilteredRandom();
+});
+
+document.getElementById("openFavorites").addEventListener("click", () => {
+  favoriteModal.style.display = "flex";
+});
+
+function closeFavorites() {
+  favoriteModal.style.display = "none";
+}
+
+document.getElementById("toggleDark").addEventListener("click", () => {
   document.body.classList.toggle("dark");
-}
-
-// 공유 기능
-function shareSite() {
-  const url = window.location.href;
-
-  if (navigator.share) {
-    navigator.share({
-      title: "EatPick - 오늘 뭐 먹지?",
-      url: url,
-    }).then(() => {
-      shareMessage.textContent = "공유가 완료되었습니다!";
-    }).catch(() => {
-      shareMessage.textContent = "공유를 취소했어요.";
-    });
-  } else {
-    navigator.clipboard.writeText(url).then(() => {
-      shareMessage.textContent = "링크가 복사되었어요!";
-    });
-  }
-}
-
-// 메뉴 로드
-fetch("menu.json")
-  .then(res => res.json())
-  .then(data => menuData = data);
+});

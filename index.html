@@ -2,104 +2,146 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EatPick | 오늘 뭐 먹지?</title>
-  <link rel="icon" href="favicon.png" />
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#b19cd9" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EatPick - 오늘 뭐 먹지?</title>
+  <link rel="icon" href="favicon.png" type="image/png">
   <style>
-    body {
-      font-family: 'Pretendard', sans-serif;
-      margin: 0;
-      padding: 2rem;
-      background: #fff;
-      color: #333;
-      text-align: center;
-      transition: background 0.3s, color 0.3s;
+    :root {
+      --bg: #fff;
+      --text: #111;
+      --card: #f8f6fc;
+      --accent: #b388eb;
     }
     .dark {
-      background: #111;
-      color: #eee;
+      --bg: #1a1a1a;
+      --text: #eee;
+      --card: #2a2a2a;
     }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 2rem;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    h1, h2, h3 { text-align: center; }
+
     .btn {
-      background: #b19cd9;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 10px 20px;
-      margin: 6px;
-      cursor: pointer;
+      background: var(--accent); color: white;
+      border: none; padding: 0.6rem 1rem;
+      border-radius: 12px; cursor: pointer;
+      font-size: 1rem; margin: 0.4rem;
+      transition: background 0.3s;
     }
-    .btn:hover { background: #a08acb; }
-    .filter-btn.selected {
-      border: 2px solid #b19cd9;
+    .btn:hover {
+      background: #a16de0;
     }
-    #filters, #menuDisplay, #favoritePopup {
-      margin-top: 1.5rem;
-    }
-    #favoritePopup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      padding: 1.5rem;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.2);
-      display: none;
-      z-index: 1000;
-      max-height: 60vh;
-      overflow-y: auto;
-    }
-    .dark #favoritePopup { background: #222; }
-    .popup-header {
-      font-weight: bold;
+
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+      max-width: 600px;
       margin-bottom: 1rem;
     }
-    .popup-close {
-      margin-top: 1rem;
-      background: #bbb;
-    }
-    .tag {
-      margin: 0.3rem;
-      display: inline-block;
-    }
-    .menu-item {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .star {
+
+    .tag-btn {
+      background: #e0d4f5;
+      color: #4a3f6c;
+      padding: 0.4rem 0.8rem;
+      border-radius: 20px;
+      border: none;
       cursor: pointer;
-      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    .tag-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .menu-box {
+      background: var(--card);
+      padding: 1.5rem;
+      border-radius: 16px;
+      margin-top: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+      position: relative;
+    }
+
+    .tags {
+      font-size: 0.9rem;
+      opacity: 0.75;
+      margin-bottom: 0.5rem;
+    }
+
+    .favorite-btn {
+      background: none; border: none;
+      font-size: 1.6rem; cursor: pointer;
+      position: absolute; top: 12px; right: 16px;
+      transition: color 0.2s;
+    }
+
+    .favorited {
       color: gold;
     }
-    #shareMessage {
-      margin-top: 1rem;
-      color: #777;
+
+    #favoriteModal {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center; align-items: center;
+    }
+
+    .modal-content {
+      background: var(--bg); color: var(--text);
+      padding: 2rem;
+      border-radius: 16px;
+      max-width: 500px; width: 90%;
+      text-align: center;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .center-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
     }
   </style>
 </head>
 <body>
-  <h1>EatPick</h1>
-  <h2>오늘 뭐 먹지?</h2>
+  <h1>🍱 오늘 뭐 먹지?</h1>
 
-  <div id="filters"></div>
+  <div id="tagFilters" class="tag-container"></div>
 
-  <button class="btn" onclick="recommendMenu()">추천 받기</button>
-  <button class="btn" onclick="toggleFavorites()">즐겨찾기 보기</button>
-  <button class="btn" onclick="shareSite()">공유하기</button>
-  <button class="btn" onclick="toggleDarkMode()">다크모드 토글</button>
+  <div class="center-row">
+    <button id="pickBtn" class="btn">🎲 메뉴 추천 받기</button>
+    <button id="openFavorites" class="btn">⭐ 즐겨찾기</button>
+    <button id="toggleDark" class="btn">🌙 다크모드</button>
+  </div>
 
   <div id="menuDisplay"></div>
-  <p id="shareMessage"></p>
 
   <!-- 즐겨찾기 팝업 -->
-  <div id="favoritePopup">
-    <div class="popup-header">내 즐겨찾기 메뉴</div>
-    <ul id="favoriteList"></ul>
-    <button class="btn popup-close" onclick="toggleFavorites()">닫기</button>
+  <div id="favoriteModal">
+    <div class="modal-content">
+      <h2>⭐ 즐겨찾기 메뉴</h2>
+      <div id="favoritesList"></div>
+      <button class="btn" onclick="closeFavorites()">닫기</button>
+    </div>
   </div>
 
   <script src="script.js"></script>
